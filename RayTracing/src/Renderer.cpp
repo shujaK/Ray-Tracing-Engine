@@ -1,5 +1,18 @@
 #include "Renderer.h"
 
+namespace Utils {
+	static uint32_t ConvertToRGBA(const glm::vec4& color)
+	{
+		uint8_t r = (uint8_t) (color.r * 255.0f);
+		uint8_t g = (uint8_t) (color.g * 255.0f);
+		uint8_t b = (uint8_t) (color.b * 255.0f);
+		uint8_t a = (uint8_t) (color.a * 255.0f);
+
+		uint32_t res = (a << 24) | (b << 16) | (g << 8) | r;
+		return res;
+	}
+}
+
 void Renderer::OnResize(uint32_t width, uint32_t height)
 {
 	if (m_FinalImage)
@@ -34,16 +47,18 @@ void Renderer::Render()
 			float u = (float) x / (float) width;
 			auto uv = (glm::vec2(u * aspectRatio, v) * 2.0f) - 1.0f;
 
-			m_ImageData[y * width + x] = PerPixel(uv);
+			auto color = PerPixel(uv);
+			color = glm::clamp(color, 0.0f, 1.0f);
+			m_ImageData[y * width + x] = Utils::ConvertToRGBA(color);
 		}
 	}
 
 	m_FinalImage->SetData(m_ImageData);
 }
 
-uint32_t Renderer::PerPixel(glm::vec2 uv)
+glm::vec4 Renderer::PerPixel(glm::vec2 uv)
 {
-	glm::vec3 rayOrigin = glm::vec3(0.0f, 0.0f, 2.0f);
+	glm::vec3 rayOrigin = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 rayDir = glm::normalize(glm::vec3(uv, -1.0f));
 	float radius = 0.5f;
 
@@ -53,12 +68,20 @@ uint32_t Renderer::PerPixel(glm::vec2 uv)
 
 	float discriminant = b * b - 4 * a * c;
 
-	if (discriminant >= 0)
-	{
-		return 0xffff00ff;
-	}
-	else
-	{
-		return 0xff000000;
-	}
+	if (discriminant < 0)
+		return glm::vec4(0, 0, 0, 1);
+	
+	float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
+	float t1 = (-b - glm::sqrt(discriminant)) / (2.0f * a);
+
+	glm::vec3 hitPoint = rayOrigin + rayDir * glm::min(t0, t1);
+	glm::vec3 normal = glm::normalize(hitPoint);
+
+	glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
+
+	glm::vec3 sphereCol = m_color;
+	float dot = glm::max(0.0f, glm::dot(normal, -lightDir));
+	sphereCol *= dot;
+
+	return glm::vec4(sphereCol, 1.0f);
 }

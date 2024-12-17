@@ -11,37 +11,38 @@ using namespace Walnut;
 class ExampleLayer : public Walnut::Layer
 {
 public:
-	virtual void OnUIRender() override
-	{
-		ImGui::Begin("Settings");
-		ImGui::Text("Last render: %.3fms", m_LastRenderTime);
-		if (ImGui::Button("Render"))
-		{
-			Render();
-		}
-		ImGui::End();
+    virtual void OnUIRender() override
+    {
+        ImGui::Begin("Settings");
+        ImGui::Text("Last render: %.3fms", m_LastRenderTime);
+        if (ImGui::Button("Render"))
+        {
+            Render();
+        }
 
-		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-		ImGui::Begin("Viewport");
+        static float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        ImGui::ColorEdit4("Pick Color", color);
+		m_Renderer.SetColor({ color[0], color[1], color[2], color[3] });
 
-		m_ViewportWidth = ImGui::GetContentRegionAvail().x;
-		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
+        ImGui::End();
 
-		auto finalImage = m_Renderer.GetFinalImage();
-		if (finalImage)
-			ImGui::Image(finalImage->GetDescriptorSet(), 
-						{ (float) finalImage->GetWidth(), (float) finalImage->GetHeight() }, 
-						ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+        ImGui::Begin("Viewport");
 
-		ImGui::End();
-		ImGui::PopStyleVar();
+        m_ViewportWidth = ImGui::GetContentRegionAvail().x;
+        m_ViewportHeight = ImGui::GetContentRegionAvail().y;
 
-		if (frameNum < 5)
-		{
-			Render();
-			frameNum++;
-		}
-	}
+        auto finalImage = m_Renderer.GetFinalImage();
+        if (finalImage)
+            ImGui::Image(finalImage->GetDescriptorSet(), 
+                        { (float) finalImage->GetWidth(), (float) finalImage->GetHeight() }, 
+                        ImVec2(0, 1), ImVec2(1, 0));
+
+        ImGui::End();
+        ImGui::PopStyleVar();
+
+		Render();
+    }
 
 	void Render()
 	{
@@ -53,7 +54,6 @@ public:
 		m_LastRenderTime = timer.ElapsedMillis();
 	}
 private:
-	int frameNum = 0;
 	Renderer m_Renderer;
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 

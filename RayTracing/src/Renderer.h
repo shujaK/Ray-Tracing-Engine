@@ -13,11 +13,13 @@ public:
 
 	void Render();
 
+	void SetColor(const glm::vec4& color) { m_color = color; }
+
 	std::shared_ptr<Walnut::Image> GetFinalImage() { return m_FinalImage; }
 private:
 	std::shared_ptr<Walnut::Image> m_FinalImage;
 	uint32_t* m_ImageData = nullptr;
-
-	uint32_t PerPixel(glm::vec2 coord);
+	glm::vec4 m_color;
+	glm::vec4 PerPixel(glm::vec2 coord);
 };
 

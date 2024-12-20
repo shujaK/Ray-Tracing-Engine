@@ -32,10 +32,13 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 	m_ImageData = new uint32_t[width * height];
 }
 
-void Renderer::Render()
+void Renderer::Render(const Camera& camera)
 {
 	auto height = m_FinalImage->GetHeight();
 	auto width = m_FinalImage->GetWidth();
+
+	Ray ray;
+	ray.origin = camera.GetPosition();
 
 	float aspectRatio = (float) width / (float) height;
 
@@ -44,10 +47,9 @@ void Renderer::Render()
 		float v = (float) y / (float) height;
 		for (uint32_t x = 0; x < width; x++)
 		{
-			float u = (float) x / (float) width;
-			auto uv = (glm::vec2(u * aspectRatio, v) * 2.0f) - 1.0f;
+			ray.direction = camera.GetRayDirections()[y * width + x];
 
-			auto color = PerPixel(uv);
+			auto color = TraceRay(ray);
 			color = glm::clamp(color, 0.0f, 1.0f);
 			m_ImageData[y * width + x] = Utils::ConvertToRGBA(color);
 		}
@@ -56,10 +58,11 @@ void Renderer::Render()
 	m_FinalImage->SetData(m_ImageData);
 }
 
-glm::vec4 Renderer::PerPixel(glm::vec2 uv)
+glm::vec4 Renderer::TraceRay(const Ray& ray)
 {
-	glm::vec3 rayOrigin = glm::vec3(0.0f, 0.0f, 1.0f);
-	glm::vec3 rayDir = glm::normalize(glm::vec3(uv, -1.0f));
+	glm::vec3 rayOrigin = ray.origin;
+	glm::vec3 rayDir = ray.direction;
+
 	float radius = 0.5f;
 
 	float a = glm::dot(rayDir, rayDir);

@@ -2,6 +2,10 @@
 
 #include "Walnut/Image.h"
 #include "Walnut/Random.h"
+
+#include "Camera.h"
+#include "Ray.h"
+
 #include <memory>
 
 
@@ -11,7 +15,7 @@ public:
 
 	void OnResize(uint32_t width, uint32_t height);
 
-	void Render();
+	void Render(const Camera& camera);
 
 	void SetColor(const glm::vec4& color) { m_color = color; }
 
@@ -20,6 +24,6 @@ private:
 	std::shared_ptr<Walnut::Image> m_FinalImage;
 	uint32_t* m_ImageData = nullptr;
 	glm::vec4 m_color;
-	glm::vec4 PerPixel(glm::vec2 coord);
+	glm::vec4 TraceRay(const Ray& ray);
 };
 

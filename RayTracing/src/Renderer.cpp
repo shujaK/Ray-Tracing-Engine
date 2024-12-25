@@ -63,21 +63,23 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
 	glm::vec3 finalCol = glm::vec3(0.0f);
 	float multiplier = 1.0f;
-	int bounces = 2;
+	int bounces = 5;
 	for (int i = 0; i < bounces; i++)
 	{
 		Renderer::HitPayload payload = TraceRay(ray);
 
 		if (payload.HitDistance < 0.0f)
 		{
-			glm::vec3 skyCol = glm::vec3(0.0f);
+			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
 			finalCol += skyCol * multiplier;
 			break;
 		}
 
 		glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
 
-		glm::vec3 sphereCol = m_ActiveScene->Spheres[payload.ObjectIndex].Albedo;
+		const Sphere& sphere = m_ActiveScene->Spheres[payload.ObjectIndex];
+		const Material& mat = m_ActiveScene->Materials[sphere.MaterialIndex];
+		glm::vec3 sphereCol = mat.Albedo;
 		float dot = glm::max(0.0f, glm::dot(payload.WorldNormal, -lightDir));
 		sphereCol *= dot;
 
@@ -85,7 +87,8 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 		multiplier *= 0.7f;
 
 		ray.origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
-		ray.direction = glm::reflect(ray.direction, payload.WorldNormal);
+		ray.direction = glm::reflect(ray.direction, 
+			payload.WorldNormal + mat.Roughness * Walnut::Random::Vec3(-0.5f, 0.5f));
 	}
 
 	return glm::vec4(finalCol, 1.0f);

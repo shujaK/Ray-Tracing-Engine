@@ -55,6 +55,15 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 	m_FinalImage->SetData(m_ImageData);
 }
 
+Renderer::HitPayload Renderer::ClickQueryObject(int x, int y)
+{
+	Ray ray;
+	ray.origin = m_ActiveCamera->GetPosition();
+	ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
+
+	return TraceRay(ray);
+}
+
 glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 {
 	Ray ray;

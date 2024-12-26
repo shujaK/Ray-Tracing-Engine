@@ -34,7 +34,7 @@ public:
         Sphere sphere2;
         sphere2.Position = { 0.0f, -101.0f, 0.0f };
         sphere2.Radius = 100.0f;
-		sphere1.MaterialIndex = 1;
+		sphere2.MaterialIndex = 1;
         m_Scene.Spheres.push_back(sphere2);
 	}
 
@@ -58,26 +58,56 @@ public:
         ImGui::End();
 
 		ImGui::Begin("Scene");
-		for (size_t i = 0; i < m_Scene.Spheres.size(); i++)
+
+		if (ImGui::TreeNode("Object"))
 		{
-			ImGui::PushID(i);
-			auto& sphere = m_Scene.Spheres[i];
-			ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
-			ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
-			ImGui::DragInt("Material Index", &sphere.MaterialIndex, 1, 0.0f, m_Scene.Materials.size() - 1);
-			ImGui::Separator();
-			ImGui::PopID();
+			if (selectedObjectIndex > -1)
+			{
+				auto& sphere = m_Scene.Spheres[selectedObjectIndex];
+				ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
+				ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
+				ImGui::DragInt("Material Index", &sphere.MaterialIndex, 1, 0.0f, m_Scene.Materials.size() - 1);
+				ImGui::Separator();
+				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
+				ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
+				ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0, 1);
+				ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0, 1);
+				ImGui::Separator();
+			}
+			ImGui::TreePop();
 		}
 
-		for (size_t i = 0; i < m_Scene.Materials.size(); i++)
+		// for (size_t i = 0; i < m_Scene.Spheres.size(); i++)
+		// {
+		// 	ImGui::PushID(i);
+		// 	auto& sphere = m_Scene.Spheres[i];
+		// 	ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
+		// 	ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
+		// 	ImGui::DragInt("Material Index", &sphere.MaterialIndex, 1, 0.0f, m_Scene.Materials.size() - 1);
+		// 	ImGui::Separator();
+		// 	ImGui::PopID();
+		// }
+
+		if (ImGui::TreeNode("Materials"))
 		{
-			ImGui::PushID(i);
-			ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
-			ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0, 1);
-			ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0, 1);
-			ImGui::Separator();
-			ImGui::PopID();
+			for (size_t i = 0; i < m_Scene.Materials.size(); i++)
+			{
+				if (ImGui::TreeNode(("Material " + std::to_string(i)).c_str()))
+				{
+					ImGui::PushID(i);
+					ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
+					ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0, 1);
+					ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0, 1);
+					ImGui::Separator();
+					ImGui::PopID();
+					ImGui::TreePop();
+				}
+			}
+			ImGui::TreePop();
 		}
+
+		// ImGui::Text("Mouse Position: (%.1f, %.1f)", imageMousePos.x, imageMousePos.y);
+		// ImGui::Text("Selected Object: %d", selectedObjectIndex);
 
 		ImGui::End();
 
@@ -90,12 +120,33 @@ public:
 
         auto finalImage = m_Renderer.GetFinalImage();
         if (finalImage)
-            ImGui::Image(finalImage->GetDescriptorSet(), 
-                        { (float) finalImage->GetWidth(), (float) finalImage->GetHeight() }, 
-                        ImVec2(0, 1), ImVec2(1, 0));
+		{
+            ImVec2 imageSize = { (float) finalImage->GetWidth(), (float) finalImage->GetHeight() };
+            ImGui::Image(finalImage->GetDescriptorSet(), imageSize, ImVec2(0, 1), ImVec2(1, 0));
+
+            // Get the mouse position relative to the image
+            ImVec2 mousePos = ImGui::GetMousePos();
+            ImVec2 windowPos = ImGui::GetWindowPos();
+            ImVec2 relativeMousePos = { mousePos.x - windowPos.x, mousePos.y - windowPos.y };
+
+            // Check if the mouse is outside the bounds of the image
+            if (relativeMousePos.x < 0 || relativeMousePos.x > imageSize.x || relativeMousePos.y < 0 || relativeMousePos.y > imageSize.y)
+            {
+                relativeMousePos.x = -1;
+                relativeMousePos.y = -1;
+            }
+
+			imageMousePos.x = relativeMousePos.x;
+			imageMousePos.y = relativeMousePos.y;
+		}
 
         ImGui::End();
         ImGui::PopStyleVar();
+
+		if (imageMousePos.x > -1 && ImGui::IsMouseDown(0))
+		{
+			selectedObjectIndex = m_Renderer.ClickQueryObject(imageMousePos.x, finalImage->GetHeight() - imageMousePos.y).ObjectIndex;
+		}
 
 		if (realtime) Render();
     }
@@ -119,6 +170,8 @@ private:
 	uint32_t m_ViewportWidth = 0, m_ViewportHeight = 0;
 
 	float m_LastRenderTime = 0.0f;
+	glm::vec2 imageMousePos = { -1, -1 };
+	int selectedObjectIndex = -1;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)

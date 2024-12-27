@@ -1,5 +1,7 @@
 #include "Renderer.h"
 
+#include <execution>
+
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
 	{
@@ -35,6 +37,19 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 	m_AccumulationData = new glm::vec4[width * height];
 
 	m_FrameIndex = 1;
+
+	m_ImageHorizontalIter.resize(width);
+	m_ImageVerticalIter.resize(height);
+
+	for (uint32_t i = 0; i < width; i++)
+	{
+		m_ImageHorizontalIter[i] = i;
+	}
+
+	for (uint32_t i = 0; i < height; i++)
+	{
+		m_ImageVerticalIter[i] = i;
+	}
 }
 
 void Renderer::Render(const Camera& camera, const Scene& scene)
@@ -51,6 +66,24 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 	auto width = m_FinalImage->GetWidth();
 	float aspectRatio = (float) width / (float) height;
 
+#define MT 1
+#if MT
+	std::for_each(std::execution::par, m_ImageVerticalIter.begin(), m_ImageVerticalIter.end(),
+		[this](uint32_t& y)
+		{
+			std::for_each(std::execution::par, m_ImageHorizontalIter.begin(), m_ImageHorizontalIter.end(),
+				[this, y](uint32_t& x)
+				{
+					auto color = PerPixel(x, y);
+					m_AccumulationData[y * m_FinalImage->GetWidth() + x] += color;
+
+					glm::vec4 accumulatedColor = m_AccumulationData[y * m_FinalImage->GetWidth() + x] / (float) m_FrameIndex;
+
+					accumulatedColor = glm::clamp(accumulatedColor, 0.0f, 1.0f);
+					m_ImageData[y * m_FinalImage->GetWidth() + x] = Utils::ConvertToRGBA(accumulatedColor);
+				});
+		});
+#else
 	for (uint32_t y = 0; y < height; y++)
 	{
 		float v = (float) y / (float) height;
@@ -65,7 +98,7 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 			m_ImageData[y * width + x] = Utils::ConvertToRGBA(accumulatedColor);
 		}
 	}
-
+#endif
 	m_FinalImage->SetData(m_ImageData);
 
 	if (m_Settings.Accumulate)
@@ -93,36 +126,30 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 	ray.origin = m_ActiveCamera->GetPosition();
 	ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
 
-	glm::vec3 finalCol = glm::vec3(0.0f);
-	float multiplier = 1.0f;
+	glm::vec3 light = glm::vec3(0.0f);
+	glm::vec3 contribution(1.0f);
 	for (int i = 0; i < m_Settings.Bounces; i++)
 	{
 		Renderer::HitPayload payload = TraceRay(ray);
 
 		if (payload.HitDistance < 0.0f)
 		{
-			glm::vec3 skyCol = glm::vec3(0.3f, 0.6f, 1.0f);
-			finalCol += skyCol * multiplier;
+			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+			// light += skyCol * contribution;
 			break;
 		}
 
-		glm::vec3 lightDir = glm::normalize(glm::vec3(-1, -1, -1));
-
 		const Sphere& sphere = m_ActiveScene->Spheres[payload.ObjectIndex];
 		const Material& mat = m_ActiveScene->Materials[sphere.MaterialIndex];
-		glm::vec3 sphereCol = mat.Albedo;
-		float dot = glm::max(0.0f, glm::dot(payload.WorldNormal, -lightDir));
-		sphereCol *= dot;
 
-		finalCol += sphereCol * multiplier;
-		multiplier *= 0.7f;
+		light += mat.GetEmission();
+		contribution *= mat.Albedo;
 
 		ray.origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
-		ray.direction = glm::reflect(ray.direction, 
-			payload.WorldNormal + mat.Roughness * Walnut::Random::Vec3(-0.5f, 0.5f));
+		ray.direction = glm::normalize(payload.WorldNormal + Walnut::Random::InUnitSphere());
 	}
 
-	return glm::vec4(finalCol, 1.0f);
+	return glm::vec4(light, 1.0f);
 }
 
 Renderer::HitPayload Renderer::TraceRay(const Ray& ray)

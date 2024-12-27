@@ -19,10 +19,15 @@ public:
 
 		Material& pinkSphere = m_Scene.Materials.emplace_back();
 		pinkSphere.Albedo = { 1.0f, 0.0f, 1.0f };
-		pinkSphere.Roughness = 0.0f;
+		pinkSphere.Roughness = 0.15f;
 		Material& blueSphere = m_Scene.Materials.emplace_back();
 		blueSphere.Albedo = { 0.0f, 0.0f, 1.0f };
 		blueSphere.Roughness = 0.1f;
+		Material& lightSphere = m_Scene.Materials.emplace_back();
+		lightSphere.Albedo = { 0.8f, 0.5f, 0.2f };
+		lightSphere.Roughness = 0.1f;
+		lightSphere.EmissionColor = lightSphere.Albedo;
+		lightSphere.EmissionStrength = 2;
 
 
         Sphere sphere1;
@@ -36,6 +41,12 @@ public:
         sphere2.Radius = 100.0f;
 		sphere2.MaterialIndex = 1;
         m_Scene.Spheres.push_back(sphere2);
+
+		Sphere sphere3;
+		sphere3.Position = { 2.0f, -0.0f, 0.0f };
+		sphere3.Radius = 1;
+		sphere3.MaterialIndex = 2;
+		m_Scene.Spheres.push_back(sphere3);
 	}
 
 	virtual void OnUpdate(float ts) override
@@ -80,23 +91,15 @@ public:
 				ImGui::Separator();
 				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
 				ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
-				ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0, 1);
-				ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0, 1);
+				ImGui::SliderFloat("Roughness", &mat.Roughness, 0.0f, 1.0f);
+				ImGui::SliderFloat("Metallic", &mat.Metallic, 0.0f, 1.0f);
+				ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
+				ImGui::SliderFloat("Emission Strength", &mat.EmissionStrength, 0.0f, 5000.0f);
+				mat.Albedo = mat.EmissionColor;
 				ImGui::Separator();
 			}
 			ImGui::TreePop();
 		}
-
-		// for (size_t i = 0; i < m_Scene.Spheres.size(); i++)
-		// {
-		// 	ImGui::PushID(i);
-		// 	auto& sphere = m_Scene.Spheres[i];
-		// 	ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
-		// 	ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
-		// 	ImGui::DragInt("Material Index", &sphere.MaterialIndex, 1, 0.0f, m_Scene.Materials.size() - 1);
-		// 	ImGui::Separator();
-		// 	ImGui::PopID();
-		// }
 
 		if (ImGui::TreeNode("Materials"))
 		{
@@ -106,8 +109,10 @@ public:
 				{
 					ImGui::PushID(i);
 					ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
-					ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0, 1);
-					ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0, 1);
+					ImGui::SliderFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.0f, 1.0f);
+					ImGui::SliderFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.0f, 1.0f);
+					ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Scene.Materials[i].EmissionColor), 0.01f);
+					ImGui::SliderFloat("Emission Strength", &m_Scene.Materials[i].EmissionStrength, 0.0f, 5000.0f);
 					ImGui::Separator();
 					ImGui::PopID();
 					ImGui::TreePop();

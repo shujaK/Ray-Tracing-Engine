@@ -19,8 +19,8 @@ namespace Walnut {
 	struct ApplicationSpecification
 	{
 		std::string Name = "Walnut App";
-		uint32_t Width = 800;
-		uint32_t Height = 450;
+		uint32_t Width = 1600;
+		uint32_t Height = 900;
 	};
 
 	class Application

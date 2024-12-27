@@ -37,6 +37,8 @@ private:
 
 		int ObjectIndex;
 	};
+
+	std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 public:
 	Renderer() = default;
 

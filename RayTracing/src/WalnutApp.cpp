@@ -40,7 +40,10 @@ public:
 
 	virtual void OnUpdate(float ts) override
 	{
-		m_Camera.OnUpdate(ts);
+		if (m_Camera.OnUpdate(ts))
+		{
+			m_Renderer.ResetFrameIndex();
+		}
 	}
 
     virtual void OnUIRender() override
@@ -55,6 +58,13 @@ public:
 			}
 		}
 		ImGui::Checkbox("Realtime Render", &realtime);
+		ImGui::InputInt("Light Bounces", &m_Renderer.GetSettings().Bounces);
+		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().Accumulate);
+		if (ImGui::Button("Reset"))
+		{
+			m_Renderer.ResetFrameIndex();
+		}
+
         ImGui::End();
 
 		ImGui::Begin("Scene");
@@ -66,7 +76,7 @@ public:
 				auto& sphere = m_Scene.Spheres[selectedObjectIndex];
 				ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
 				ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
-				ImGui::DragInt("Material Index", &sphere.MaterialIndex, 1, 0.0f, m_Scene.Materials.size() - 1);
+				ImGui::InputInt("Material", &sphere.MaterialIndex);
 				ImGui::Separator();
 				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
 				ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);

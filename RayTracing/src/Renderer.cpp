@@ -30,12 +30,22 @@ void Renderer::OnResize(uint32_t width, uint32_t height)
 
 	delete[] m_ImageData;
 	m_ImageData = new uint32_t[width * height];
+
+	delete[] m_AccumulationData;
+	m_AccumulationData = new glm::vec4[width * height];
+
+	m_FrameIndex = 1;
 }
 
 void Renderer::Render(const Camera& camera, const Scene& scene)
 {
 	m_ActiveCamera = &camera;
 	m_ActiveScene = &scene;
+
+	if (m_FrameIndex == 1)
+	{
+		memset(m_AccumulationData, 0, m_FinalImage->GetWidth() * m_FinalImage->GetHeight() * sizeof(glm::vec4));
+	}
 
 	auto height = m_FinalImage->GetHeight();
 	auto width = m_FinalImage->GetWidth();
@@ -47,12 +57,25 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 		for (uint32_t x = 0; x < width; x++)
 		{
 			auto color = PerPixel(x, y);
-			color = glm::clamp(color, 0.0f, 1.0f);
-			m_ImageData[y * width + x] = Utils::ConvertToRGBA(color);
+			m_AccumulationData[y * width + x] += color;
+
+			glm::vec4 accumulatedColor = m_AccumulationData[y * width + x] / (float) m_FrameIndex;
+
+			accumulatedColor = glm::clamp(accumulatedColor, 0.0f, 1.0f);
+			m_ImageData[y * width + x] = Utils::ConvertToRGBA(accumulatedColor);
 		}
 	}
 
 	m_FinalImage->SetData(m_ImageData);
+
+	if (m_Settings.Accumulate)
+	{
+		m_FrameIndex++;
+	}
+	else
+	{
+		m_FrameIndex = 1;
+	}
 }
 
 Renderer::HitPayload Renderer::ClickQueryObject(int x, int y)
@@ -72,14 +95,13 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
 	glm::vec3 finalCol = glm::vec3(0.0f);
 	float multiplier = 1.0f;
-	int bounces = 5;
-	for (int i = 0; i < bounces; i++)
+	for (int i = 0; i < m_Settings.Bounces; i++)
 	{
 		Renderer::HitPayload payload = TraceRay(ray);
 
 		if (payload.HitDistance < 0.0f)
 		{
-			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+			glm::vec3 skyCol = glm::vec3(0.3f, 0.6f, 1.0f);
 			finalCol += skyCol * multiplier;
 			break;
 		}

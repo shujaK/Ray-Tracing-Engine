@@ -11,10 +11,21 @@
 
 
 class Renderer {
+public:
+	struct Settings
+	{
+		bool Accumulate = true;
+		int Bounces = 5;
+	};
+
 private:
+
 	std::shared_ptr<Walnut::Image> m_FinalImage;
 	uint32_t* m_ImageData = nullptr;
-	glm::vec4 m_color;
+	glm::vec4* m_AccumulationData = nullptr;
+	uint32_t m_FrameIndex = 1;
+
+	Settings m_Settings;
 
 	const Scene* m_ActiveScene = nullptr;
 	const Camera* m_ActiveCamera = nullptr;
@@ -33,11 +44,13 @@ public:
 
 	void Render(const Camera& camera, const Scene& scene);
 
-	void SetColor(const glm::vec4& color) { m_color = color; }
-
 	std::shared_ptr<Walnut::Image> GetFinalImage() { return m_FinalImage; }
 
 	HitPayload ClickQueryObject(int x, int y);
+
+	void ResetFrameIndex() { m_FrameIndex = 1; }
+
+	Settings& GetSettings() { return m_Settings; }
 
 private:
 	glm::vec4 PerPixel(uint32_t x, uint32_t y);

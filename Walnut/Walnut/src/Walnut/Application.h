@@ -43,6 +43,8 @@ namespace Walnut {
 
 		void PushLayer(const std::shared_ptr<Layer>& layer) { m_LayerStack.emplace_back(layer); layer->OnAttach(); }
 
+		std::shared_ptr<Layer> PeekLayer() { return m_LayerStack.front(); }
+
 		void Close();
 
 		float GetTime();

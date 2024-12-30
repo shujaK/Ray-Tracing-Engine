@@ -1,0 +1,78 @@
+{
+    "Materials": [
+        {
+            "Albedo": [
+                1.0,
+                0.0,
+                1.0
+            ],
+            "EmissionColor": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "EmissionStrength": 0.0,
+            "Metallic": 0.0,
+            "Roughness": 0.15000000596046448
+        },
+        {
+            "Albedo": [
+                0.0,
+                0.0,
+                1.0
+            ],
+            "EmissionColor": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "EmissionStrength": 0.0,
+            "Metallic": 0.0,
+            "Roughness": 0.10000000149011612
+        },
+        {
+            "Albedo": [
+                0.800000011920929,
+                0.5,
+                0.20000000298023224
+            ],
+            "EmissionColor": [
+                0.800000011920929,
+                0.5,
+                0.20000000298023224
+            ],
+            "EmissionStrength": 2.0,
+            "Metallic": 0.0,
+            "Roughness": 0.10000000149011612
+        }
+    ],
+    "Spheres": [
+        {
+            "MaterialIndex": 0,
+            "Position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Radius": 1.0
+        },
+        {
+            "MaterialIndex": 1,
+            "Position": [
+                0.0,
+                -101.0,
+                0.0
+            ],
+            "Radius": 100.0
+        },
+        {
+            "MaterialIndex": 2,
+            "Position": [
+                2.0,
+                -0.0,
+                0.0
+            ],
+            "Radius": 1.0
+        }
+    ]
+}

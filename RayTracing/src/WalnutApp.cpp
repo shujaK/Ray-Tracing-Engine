@@ -1,3 +1,5 @@
+#include <fstream>
+
 #include "Walnut/Application.h"
 #include "Walnut/EntryPoint.h"
 
@@ -9,12 +11,15 @@
 
 #include "glm/gtc/type_ptr.hpp"
 
-using namespace Walnut;
+#include "inc/json.hpp"
 
-class ExampleLayer : public Walnut::Layer
+using namespace Walnut;
+using namespace Scene_;
+
+class MainLayer : public Walnut::Layer
 {
 public:
-	ExampleLayer() : m_Camera(45.0f, 0.1f, 100.0f)
+	MainLayer() : m_Camera(45.0f, 0.1f, 100.0f)
 	{
 
 		Material& pinkSphere = m_Scene.Materials.emplace_back();
@@ -57,10 +62,13 @@ public:
 		}
 	}
 
+
     virtual void OnUIRender() override
     {
+		bool UIEdited = false;
+
         ImGui::Begin("Settings");
-        ImGui::Text("Last render: %.3fms", m_LastRenderTime);
+        ImGui::Text("Last render: %.3fms (%.2f FPS)", m_LastRenderTime, 1000.0f/ m_LastRenderTime);
 		if (!realtime)
 		{
 			if (ImGui::Button("Render"))
@@ -69,7 +77,7 @@ public:
 			}
 		}
 		ImGui::Checkbox("Realtime Render", &realtime);
-		ImGui::InputInt("Light Bounces", &m_Renderer.GetSettings().Bounces);
+		UIEdited |= ImGui::InputInt("Light Bounces", &m_Renderer.GetSettings().Bounces);
 		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().Accumulate);
 		if (ImGui::Button("Reset"))
 		{
@@ -78,57 +86,90 @@ public:
 
         ImGui::End();
 
-		ImGui::Begin("Scene");
+		ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_MenuBar);
 
-		if (ImGui::TreeNode("Object"))
+		if (ImGui::BeginMenuBar())
 		{
-			if (selectedObjectIndex > -1)
+			if (ImGui::BeginMenu("Add"))
 			{
-				auto& sphere = m_Scene.Spheres[selectedObjectIndex];
-				ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
-				ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
-				ImGui::InputInt("Material", &sphere.MaterialIndex);
-				ImGui::Separator();
-				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
-				ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
-				ImGui::SliderFloat("Roughness", &mat.Roughness, 0.0f, 1.0f);
-				ImGui::SliderFloat("Metallic", &mat.Metallic, 0.0f, 1.0f);
-				ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
-				ImGui::SliderFloat("Emission Strength", &mat.EmissionStrength, 0.0f, 5000.0f);
-				mat.Albedo = mat.EmissionColor;
-				ImGui::Separator();
+				if (ImGui::MenuItem("Sphere"))
+				{
+					m_Scene.addSphere();
+					selectedObjectIndex = m_Scene.Spheres.size() - 1;
+				}
+				ImGui::EndMenu();
 			}
-			ImGui::TreePop();
+			if (ImGui::BeginMenu("Save/Load"))
+			{
+				if (ImGui::MenuItem("Save Scene"))
+				{
+					SaveScene("scene");
+
+				}
+				if (ImGui::MenuItem("Load Scene"))
+				{
+					LoadScene();
+				}
+				ImGui::EndMenu();
+			}
+			ImGui::EndMenuBar();
 		}
 
-		if (ImGui::TreeNode("Materials"))
+		ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+		if (ImGui::TreeNode("Object"))
 		{
+            if (selectedObjectIndex > -1)
+            {
+				auto& sphere = m_Scene.Spheres[selectedObjectIndex];
+				UIEdited |= ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
+				UIEdited |= ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
+				UIEdited |= ImGui::InputInt("Material", &sphere.MaterialIndex);
+				if (sphere.MaterialIndex < 0) {sphere.MaterialIndex = 0; UIEdited = false;}
+				if (sphere.MaterialIndex >= m_Scene.Materials.size()) {sphere.MaterialIndex = m_Scene.Materials.size() - 1; UIEdited = false;}
+
+				if (ImGui::Button("Delete"))
+				{
+					m_Scene.Spheres.erase(m_Scene.Spheres.begin() + selectedObjectIndex);
+					selectedObjectIndex = -1;
+					UIEdited = true;
+				}
+				ImGui::Separator();
+				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
+				UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
+				UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
+				UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
+				UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
+				UIEdited |= ImGui::DragFloat("Emission Strength", &mat.EmissionStrength, 0.1f, 0.0f, 5000.0f);
+				ImGui::Separator();
+            }
+            ImGui::TreePop();
+            }
+
+        if (ImGui::TreeNode("Materials"))
+        {
 			for (size_t i = 0; i < m_Scene.Materials.size(); i++)
 			{
 				if (ImGui::TreeNode(("Material " + std::to_string(i)).c_str()))
 				{
 					ImGui::PushID(i);
-					ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
-					ImGui::SliderFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.0f, 1.0f);
-					ImGui::SliderFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.0f, 1.0f);
-					ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Scene.Materials[i].EmissionColor), 0.01f);
-					ImGui::SliderFloat("Emission Strength", &m_Scene.Materials[i].EmissionStrength, 0.0f, 5000.0f);
+					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
+					UIEdited |= ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0.0f, 1.0f);
+					UIEdited |= ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0.0f, 1.0f);
+					UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Scene.Materials[i].EmissionColor), 0.01f);
+					UIEdited |= ImGui::DragFloat("Emission Strength", &m_Scene.Materials[i].EmissionStrength, 0.2f, 0.0f, 5000.0f);
 					ImGui::Separator();
 					ImGui::PopID();
 					ImGui::TreePop();
 				}
 			}
 			ImGui::TreePop();
-		}
-
-		// ImGui::Text("Mouse Position: (%.1f, %.1f)", imageMousePos.x, imageMousePos.y);
-		// ImGui::Text("Selected Object: %d", selectedObjectIndex);
+        }
 
 		ImGui::End();
 
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-        ImGui::Begin("Viewport");
+		ImGui::Begin("Viewport");
 
         m_ViewportWidth = ImGui::GetContentRegionAvail().x;
         m_ViewportHeight = ImGui::GetContentRegionAvail().y;
@@ -158,6 +199,8 @@ public:
         ImGui::End();
         ImGui::PopStyleVar();
 
+		if (UIEdited) m_Renderer.ResetFrameIndex();
+
 		if (imageMousePos.x > -1 && ImGui::IsMouseDown(0))
 		{
 			selectedObjectIndex = m_Renderer.ClickQueryObject(imageMousePos.x, finalImage->GetHeight() - imageMousePos.y).ObjectIndex;
@@ -177,6 +220,34 @@ public:
 
 		m_LastRenderTime = timer.ElapsedMillis();
 	}
+
+	void SaveScene(std::string filename)
+	{
+		std::ofstream file(filename + ".json");
+		if (file.is_open())
+		{
+			nlohmann::json j;
+			j["Spheres"] = m_Scene.Spheres;
+			j["Materials"] = m_Scene.Materials;
+			file << j.dump(4);
+			file.close();
+		}
+	}
+
+	void LoadScene()
+	{
+		std::ifstream file("scene.json");
+		if (file.is_open())
+		{
+			nlohmann::json j;
+			file >> j;
+			m_Scene.Spheres = j["Spheres"].get<std::vector<Sphere>>();
+			m_Scene.Materials = j["Materials"].get<std::vector<Material>>();
+			file.close();
+		}
+
+		m_Renderer.ResetFrameIndex();
+	}
 private:
 	bool realtime = true;
 	Renderer m_Renderer;
@@ -186,7 +257,7 @@ private:
 
 	float m_LastRenderTime = 0.0f;
 	glm::vec2 imageMousePos = { -1, -1 };
-	int selectedObjectIndex = -1;
+	int selectedObjectIndex = 0;
 };
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
@@ -195,7 +266,8 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 	spec.Name = "Ray Tracing";
 
 	Walnut::Application* app = new Walnut::Application(spec);
-	app->PushLayer<ExampleLayer>();
+	app->PushLayer<MainLayer>();
+	auto layer = app->PeekLayer();
 	app->SetMenubarCallback([app]()
 	{
 		if (ImGui::BeginMenu("File"))

@@ -9,7 +9,7 @@
 
 #include <memory>
 
-
+using namespace Scene_;
 class Renderer {
 public:
 	struct Settings

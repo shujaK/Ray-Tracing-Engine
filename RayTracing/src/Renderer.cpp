@@ -1,6 +1,7 @@
 #include "Renderer.h"
 
 #include <execution>
+using namespace Scene_;
 
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
@@ -12,6 +13,27 @@ namespace Utils {
 
 		uint32_t res = (a << 24) | (b << 16) | (g << 8) | r;
 		return res;
+	}
+
+	static uint32_t pcg_hash(uint32_t input)
+	{
+		uint32_t state = input * 747796405u + 2891336453u;
+		uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+		return (word >> 22u) ^ word;
+	}
+
+	static float RandomFloat(uint32_t& seed)
+	{
+		seed = pcg_hash(seed);
+		return (float) seed / (float) std::numeric_limits<uint32_t>::max();
+	}
+
+	static glm::vec3 RandomInUnitSphere(uint32_t& seed)
+	{
+		return glm::normalize(glm::vec3(
+			RandomFloat(seed) * 2.0f - 1.0f,
+			RandomFloat(seed) * 2.0f - 1.0f,
+			RandomFloat(seed) * 2.0f - 1.0f));
 	}
 }
 
@@ -126,16 +148,20 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 	ray.origin = m_ActiveCamera->GetPosition();
 	ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
 
+	uint32_t seed = y * m_FinalImage->GetWidth() + x;
+	seed *= m_FrameIndex;
+
 	glm::vec3 light = glm::vec3(0.0f);
 	glm::vec3 contribution(1.0f);
 	for (int i = 0; i < m_Settings.Bounces; i++)
 	{
+		seed += i;
 		Renderer::HitPayload payload = TraceRay(ray);
 
 		if (payload.HitDistance < 0.0f)
 		{
 			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
-			// light += skyCol * contribution;
+			light += skyCol * contribution;
 			break;
 		}
 

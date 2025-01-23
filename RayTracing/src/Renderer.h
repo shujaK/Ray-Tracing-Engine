@@ -9,7 +9,6 @@
 
 #include <memory>
 
-using namespace Scene_;
 class Renderer {
 public:
 	struct Settings
@@ -29,14 +28,6 @@ private:
 
 	const Scene* m_ActiveScene = nullptr;
 	const Camera* m_ActiveCamera = nullptr;
-
-	struct HitPayload {
-		glm::vec3 WorldPosition;
-		glm::vec3 WorldNormal;
-		float HitDistance;
-
-		int ObjectIndex;
-	};
 
 	std::vector<uint32_t> m_ImageHorizontalIter, m_ImageVerticalIter;
 public:

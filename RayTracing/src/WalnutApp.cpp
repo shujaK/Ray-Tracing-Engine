@@ -14,7 +14,6 @@
 #include "inc/json.hpp"
 
 using namespace Walnut;
-using namespace Scene_;
 
 class MainLayer : public Walnut::Layer
 {
@@ -35,23 +34,23 @@ public:
 		lightSphere.EmissionStrength = 2;
 
 
-        Sphere sphere1;
+        pSphere sphere1;
         sphere1.Position = { 0.0f, 0.0f, 0.0f };
         sphere1.Radius = 1.0f;
 		sphere1.MaterialIndex = 0;
-        m_Scene.Spheres.push_back(sphere1);
+        m_Scene.ProcObjects.add(std::make_shared<pSphere> (sphere1));
 
-        Sphere sphere2;
+        pSphere sphere2;
         sphere2.Position = { 0.0f, -101.0f, 0.0f };
         sphere2.Radius = 100.0f;
 		sphere2.MaterialIndex = 1;
-        m_Scene.Spheres.push_back(sphere2);
+		m_Scene.ProcObjects.add(std::make_shared<pSphere>(sphere2));
 
-		Sphere sphere3;
+		pSphere sphere3;
 		sphere3.Position = { 2.0f, -0.0f, 0.0f };
 		sphere3.Radius = 1;
 		sphere3.MaterialIndex = 2;
-		m_Scene.Spheres.push_back(sphere3);
+		m_Scene.ProcObjects.add(std::make_shared<pSphere>(sphere3));
 	}
 
 	virtual void OnUpdate(float ts) override
@@ -95,7 +94,7 @@ public:
 				if (ImGui::MenuItem("Sphere"))
 				{
 					m_Scene.addSphere();
-					selectedObjectIndex = m_Scene.Spheres.size() - 1;
+					selectedObjectIndex = m_Scene.ProcObjects.Objects.size() - 1;
 				}
 				ImGui::EndMenu();
 			}
@@ -103,12 +102,12 @@ public:
 			{
 				if (ImGui::MenuItem("Save Scene"))
 				{
-					SaveScene("scene");
+					// SaveScene("scene");
 
 				}
 				if (ImGui::MenuItem("Load Scene"))
 				{
-					LoadScene();
+					// LoadScene();
 				}
 				ImGui::EndMenu();
 			}
@@ -120,21 +119,19 @@ public:
 		{
             if (selectedObjectIndex > -1)
             {
-				auto& sphere = m_Scene.Spheres[selectedObjectIndex];
-				UIEdited |= ImGui::DragFloat3("Position", glm::value_ptr(sphere.Position), 0.01f);
-				UIEdited |= ImGui::DragFloat("Radius", &sphere.Radius, 0.01f, 0.0f);
-				UIEdited |= ImGui::InputInt("Material", &sphere.MaterialIndex);
-				if (sphere.MaterialIndex < 0) {sphere.MaterialIndex = 0; UIEdited = false;}
-				if (sphere.MaterialIndex >= m_Scene.Materials.size()) {sphere.MaterialIndex = m_Scene.Materials.size() - 1; UIEdited = false;}
-
+				auto object = m_Scene.ProcObjects.Objects[selectedObjectIndex].get();
+				object->DisplayMenu(&UIEdited);
+            	if (object->getMaterialIndex() < 0) {object->setMaterialIndex(0); UIEdited = false;}
+				if (object->getMaterialIndex() >= m_Scene.Materials.size()) {object->setMaterialIndex(m_Scene.Materials.size() - 1); UIEdited = false;}
+				
 				if (ImGui::Button("Delete"))
 				{
-					m_Scene.Spheres.erase(m_Scene.Spheres.begin() + selectedObjectIndex);
+					m_Scene.ProcObjects.Objects.erase(m_Scene.ProcObjects.Objects.begin() + selectedObjectIndex);
 					selectedObjectIndex = -1;
 					UIEdited = true;
 				}
 				ImGui::Separator();
-				auto& mat = m_Scene.Materials[sphere.MaterialIndex];
+				auto& mat = m_Scene.Materials[object->getMaterialIndex()];
 				UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
 				UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
 				UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
@@ -203,7 +200,8 @@ public:
 
 		if (imageMousePos.x > -1 && ImGui::IsMouseDown(0))
 		{
-			selectedObjectIndex = m_Renderer.ClickQueryObject(imageMousePos.x, finalImage->GetHeight() - imageMousePos.y).ObjectIndex;
+			auto p = m_Renderer.ClickQueryObject(imageMousePos.x, finalImage->GetHeight() - imageMousePos.y);
+			selectedObjectIndex = p.ObjectIndex;
 		}
 
 		if (realtime) Render();
@@ -221,33 +219,33 @@ public:
 		m_LastRenderTime = timer.ElapsedMillis();
 	}
 
-	void SaveScene(std::string filename)
-	{
-		std::ofstream file(filename + ".json");
-		if (file.is_open())
-		{
-			nlohmann::json j;
-			j["Spheres"] = m_Scene.Spheres;
-			j["Materials"] = m_Scene.Materials;
-			file << j.dump(4);
-			file.close();
-		}
-	}
-
-	void LoadScene()
-	{
-		std::ifstream file("scene.json");
-		if (file.is_open())
-		{
-			nlohmann::json j;
-			file >> j;
-			m_Scene.Spheres = j["Spheres"].get<std::vector<Sphere>>();
-			m_Scene.Materials = j["Materials"].get<std::vector<Material>>();
-			file.close();
-		}
-
-		m_Renderer.ResetFrameIndex();
-	}
+	// void SaveScene(std::string filename)
+	// {
+	// 	std::ofstream file(filename + ".json");
+	// 	if (file.is_open())
+	// 	{
+	// 		nlohmann::json j;
+	// 		j["Spheres"] = m_Scene.Spheres;
+	// 		j["Materials"] = m_Scene.Materials;
+	// 		file << j.dump(4);
+	// 		file.close();
+	// 	}
+	// }
+	// 
+	// void LoadScene()
+	// {
+	// 	std::ifstream file("scene.json");
+	// 	if (file.is_open())
+	// 	{
+	// 		nlohmann::json j;
+	// 		file >> j;
+	// 		m_Scene.Spheres = j["Spheres"].get<std::vector<Sphere>>();
+	// 		m_Scene.Materials = j["Materials"].get<std::vector<Material>>();
+	// 		file.close();
+	// 	}
+	// 
+	// 	m_Renderer.ResetFrameIndex();
+	// }
 private:
 	bool realtime = true;
 	Renderer m_Renderer;

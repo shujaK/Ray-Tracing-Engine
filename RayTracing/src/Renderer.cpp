@@ -1,7 +1,6 @@
 #include "Renderer.h"
 
 #include <execution>
-using namespace Scene_;
 
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
@@ -133,7 +132,7 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 	}
 }
 
-Renderer::HitPayload Renderer::ClickQueryObject(int x, int y)
+HitPayload Renderer::ClickQueryObject(int x, int y)
 {
 	Ray ray;
 	ray.origin = m_ActiveCamera->GetPosition();
@@ -156,7 +155,7 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 	for (int i = 0; i < m_Settings.Bounces; i++)
 	{
 		seed += i;
-		Renderer::HitPayload payload = TraceRay(ray);
+		HitPayload payload = TraceRay(ray);
 
 		if (payload.HitDistance < 0.0f)
 		{
@@ -165,8 +164,8 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 			break;
 		}
 
-		const Sphere& sphere = m_ActiveScene->Spheres[payload.ObjectIndex];
-		const Material& mat = m_ActiveScene->Materials[sphere.MaterialIndex];
+		int materialIndex = m_ActiveScene->ProcObjects.Objects[payload.ObjectIndex]->getMaterialIndex();
+		const Material& mat = m_ActiveScene->Materials[materialIndex];
 
 		light += mat.GetEmission();
 		contribution *= mat.Albedo;
@@ -178,69 +177,54 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 	return glm::vec4(light, 1.0f);
 }
 
-Renderer::HitPayload Renderer::TraceRay(const Ray& ray)
+HitPayload Renderer::TraceRay(const Ray& ray)
 {
-	if (m_ActiveScene->Spheres.empty())
+	if (m_ActiveScene->ProcObjects.Objects.empty())
 		return Miss(ray);
 
-	glm::vec3 rayDir = ray.direction;
+	HitPayload finalPayload;
 
-	int closestSphere = -1;
+	bool hitAny = false;
 	float hitDistance = FLT_MAX;
-	for (uint32_t i = 0; i < m_ActiveScene->Spheres.size(); i++)
+	for (uint32_t i = 0; i < m_ActiveScene->ProcObjects.Objects.size(); i++)
 	{
-
-		const Sphere& sphere = m_ActiveScene->Spheres[i];
-		glm::vec3 rayOriginToSphere = ray.origin - sphere.Position;
-
-		float a = glm::dot(rayDir, rayDir);
-		float b = 2.0f * glm::dot(rayDir, rayOriginToSphere);
-		float c = glm::dot(rayOriginToSphere, rayOriginToSphere) - sphere.Radius * sphere.Radius;
-
-		float discriminant = b * b - 4 * a * c;
-
-		if (discriminant < 0.0f)
-			continue;
-
-		float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
-		float t1 = (-b - glm::sqrt(discriminant)) / (2.0f * a);
-
-		float closestT = glm::min(t0, t1);
-		if (closestT > 0.0f && closestT < hitDistance)
+		auto payload = m_ActiveScene->ProcObjects.Objects[i]->TraceRay(ray);
+		if (payload.HitDistance > 0.0f && payload.HitDistance < hitDistance)
 		{
-			hitDistance = closestT;
-			closestSphere = i;
+			finalPayload = payload;
+			hitAny = true;
+			hitDistance = payload.HitDistance;
 		}
 	}
 
-	if (closestSphere < 0)
+	if (!hitAny)
 		return Miss(ray);
 
-	return ClosestHit(ray, hitDistance, closestSphere);
+	return finalPayload;
 
 }
 
 
-Renderer::HitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
+// HitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
+// {
+// 	HitPayload payload;
+// 	payload.HitDistance = hitDistance;
+// 	payload.ObjectIndex = objectIndex;
+// 
+// 	pSphere* closestSphere = (pSphere *) m_ActiveScene->ProcObjects.Objects[objectIndex].get();
+// 
+// 	glm::vec3 origin = ray.origin - closestSphere->Position;
+// 	payload.WorldPosition = origin + ray.direction * hitDistance;
+// 	payload.WorldNormal = glm::normalize(payload.WorldPosition);
+// 
+// 	payload.WorldPosition += closestSphere.Position;
+// 
+// 	return payload;
+// }
+
+HitPayload Renderer::Miss(const Ray& ray)
 {
-	Renderer::HitPayload payload;
-	payload.HitDistance = hitDistance;
-	payload.ObjectIndex = objectIndex;
-
-	const Sphere& closestSphere = m_ActiveScene->Spheres[objectIndex];
-
-	glm::vec3 origin = ray.origin - closestSphere.Position;
-	payload.WorldPosition = origin + ray.direction * hitDistance;
-	payload.WorldNormal = glm::normalize(payload.WorldPosition);
-
-	payload.WorldPosition += closestSphere.Position;
-
-	return payload;
-}
-
-Renderer::HitPayload Renderer::Miss(const Ray& ray)
-{
-	Renderer::HitPayload payload;
+	HitPayload payload;
 	payload.HitDistance = -1.0f;
 	payload.ObjectIndex = -1;
 

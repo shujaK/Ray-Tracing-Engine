@@ -12,7 +12,7 @@ HitPayload ProcObject::Miss(const Ray& ray)
 	return payload;
 }
 
-HitPayload pSphere::TraceRay(const Ray& ray)
+HitPayload pSphere::TraceRay(const Ray& ray, Interval ray_interval)
 {
 	glm::vec3 rayDir = ray.direction;
 
@@ -29,6 +29,8 @@ HitPayload pSphere::TraceRay(const Ray& ray)
 
 	float t0 = (-b + glm::sqrt(discriminant)) / (2.0f * a);
 	float t1 = (-b - glm::sqrt(discriminant)) / (2.0f * a);
+	if (!ray_interval.surrounds(t0) && !ray_interval.surrounds(t1))
+		return Miss(ray);
 
 	float closestT = glm::min(t0, t1);
 	if (closestT > 0.0f)

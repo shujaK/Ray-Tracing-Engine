@@ -4,6 +4,7 @@
 #include "Ray.h"
 #include <memory>
 #include <vector>
+#include "Interval.h"
 
 struct HitPayload;
 struct Ray;
@@ -22,7 +23,7 @@ public:
 	int ObjectIndex = 0;
 	virtual ~ProcObject() = default;
 
-	virtual HitPayload TraceRay(const Ray& ray) = 0;
+	virtual HitPayload TraceRay(const Ray& ray, Interval ray_interval) = 0;
 
 	virtual int getMaterialIndex() { return MaterialIndex; };
 	virtual void setMaterialIndex(int i) { MaterialIndex = i; };
@@ -43,7 +44,7 @@ public:
 
 	pSphere(glm::vec3 position, float radius) : Position(position), Radius(radius) {}
 
-	HitPayload TraceRay(const Ray& ray) override;
+	HitPayload TraceRay(const Ray& ray, Interval ray_interval) override;
 
 	pSphere* get() { return this; }
 

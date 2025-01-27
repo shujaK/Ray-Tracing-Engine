@@ -1,14 +1,16 @@
 #include "Renderer.h"
-
+#include "Interval.h"
 #include <execution>
 
 namespace Utils {
 	static uint32_t ConvertToRGBA(const glm::vec4& color)
 	{
-		uint8_t r = (uint8_t) (color.r * 255.0f);
-		uint8_t g = (uint8_t) (color.g * 255.0f);
-		uint8_t b = (uint8_t) (color.b * 255.0f);
-		uint8_t a = (uint8_t) (color.a * 255.0f);
+		Interval val_interval(0.0f, 0.999f);
+
+		uint8_t r = (uint8_t) (val_interval.clamp(color.r) * 255.0f);
+		uint8_t g = (uint8_t) (val_interval.clamp(color.g) * 255.0f);
+		uint8_t b = (uint8_t) (val_interval.clamp(color.b) * 255.0f);
+		uint8_t a = (uint8_t) (val_interval.clamp(color.a) * 255.0f);
 
 		uint32_t res = (a << 24) | (b << 16) | (g << 8) | r;
 		return res;
@@ -138,7 +140,7 @@ HitPayload Renderer::ClickQueryObject(int x, int y)
 	ray.origin = m_ActiveCamera->GetPosition();
 	ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
 
-	return TraceRay(ray);
+	return TraceRay(ray, Interval(0, infinity));
 }
 
 glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
@@ -152,32 +154,49 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
 	glm::vec3 light = glm::vec3(0.0f);
 	glm::vec3 contribution(1.0f);
-	for (int i = 0; i < m_Settings.Bounces; i++)
+
+	int aliasNum = m_Settings.Antialiasing ? m_Settings.AntialiasingSamples : 1;
+	for (int j = 0; j < aliasNum; j++)
 	{
-		seed += i;
-		HitPayload payload = TraceRay(ray);
-
-		if (payload.HitDistance < 0.0f)
+		if (m_Settings.Antialiasing)
 		{
-			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
-			light += skyCol * contribution;
-			break;
+			seed += j;
+			float u = (float) (Utils::RandomFloat(seed) * 2.0f - 1) / (m_Settings.AntialiasingFactor);
+			float v = (float) (Utils::RandomFloat(seed) * 2.0f - 1) / (m_Settings.AntialiasingFactor);
+			float w = (float) (Utils::RandomFloat(seed) * 2.0f - 1) / (m_Settings.AntialiasingFactor);
+
+			ray.direction += glm::vec3(u, v, w);
 		}
+		for (int i = 0; i < m_Settings.Bounces; i++)
+		{
+			seed += i;
+			HitPayload payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
 
-		int materialIndex = m_ActiveScene->ProcObjects.Objects[payload.ObjectIndex]->getMaterialIndex();
-		const Material& mat = m_ActiveScene->Materials[materialIndex];
+			if (payload.HitDistance < 0.0f)
+			{
+				glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+				light += skyCol * contribution;
+				break;
+			}
 
-		light += mat.GetEmission();
-		contribution *= mat.Albedo;
+			int materialIndex = m_ActiveScene->ProcObjects.Objects[payload.ObjectIndex]->getMaterialIndex();
+			const Material& mat = m_ActiveScene->Materials[materialIndex];
 
-		ray.origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
-		ray.direction = glm::normalize(payload.WorldNormal + Walnut::Random::InUnitSphere());
+			light += mat.GetEmission();
+			contribution *= mat.Albedo;
+
+			ray.origin = payload.WorldPosition + payload.WorldNormal * 0.0001f;
+			ray.direction = glm::normalize(payload.WorldNormal + Walnut::Random::InUnitSphere());
+		}
 	}
+	light /= (float) aliasNum;
+	contribution /= (float) aliasNum;
+	
 
 	return glm::vec4(light, 1.0f);
 }
 
-HitPayload Renderer::TraceRay(const Ray& ray)
+HitPayload Renderer::TraceRay(const Ray& ray, Interval ray_interval)
 {
 	if (m_ActiveScene->ProcObjects.Objects.empty())
 		return Miss(ray);
@@ -185,10 +204,10 @@ HitPayload Renderer::TraceRay(const Ray& ray)
 	HitPayload finalPayload;
 
 	bool hitAny = false;
-	float hitDistance = FLT_MAX;
+	float hitDistance = ray_interval.max;
 	for (uint32_t i = 0; i < m_ActiveScene->ProcObjects.Objects.size(); i++)
 	{
-		auto payload = m_ActiveScene->ProcObjects.Objects[i]->TraceRay(ray);
+		auto payload = m_ActiveScene->ProcObjects.Objects[i]->TraceRay(ray, Interval(ray_interval.min, hitDistance));
 		if (payload.HitDistance > 0.0f && payload.HitDistance < hitDistance)
 		{
 			finalPayload = payload;

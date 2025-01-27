@@ -15,6 +15,10 @@ public:
 	{
 		bool Accumulate = true;
 		int Bounces = 5;
+		float FarDistance = infinity;
+		bool Antialiasing = false;
+		int AntialiasingSamples = 3;
+		int AntialiasingFactor = 1000;
 	};
 
 private:
@@ -23,7 +27,6 @@ private:
 	uint32_t* m_ImageData = nullptr;
 	glm::vec4* m_AccumulationData = nullptr;
 	uint32_t m_FrameIndex = 1;
-
 	Settings m_Settings;
 
 	const Scene* m_ActiveScene = nullptr;
@@ -48,7 +51,7 @@ public:
 private:
 	glm::vec4 PerPixel(uint32_t x, uint32_t y);
 
-	HitPayload TraceRay(const Ray& ray);
+	HitPayload TraceRay(const Ray& ray, Interval ray_interval);
 	HitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
 	HitPayload Miss(const Ray& ray);
 };

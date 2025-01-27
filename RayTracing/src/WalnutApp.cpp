@@ -76,8 +76,16 @@ public:
 			}
 		}
 		ImGui::Checkbox("Realtime Render", &realtime);
+		if (ImGui::TreeNode("Anti Aliasing"))
+		{
+			UIEdited |= ImGui::Checkbox("Enabled", &m_Renderer.GetSettings().Antialiasing);
+			UIEdited |= ImGui::InputInt("Samples", &m_Renderer.GetSettings().AntialiasingSamples);
+			UIEdited |= ImGui::InputInt("Factor", &m_Renderer.GetSettings().AntialiasingFactor);
+			ImGui::TreePop();
+		}
 		UIEdited |= ImGui::InputInt("Light Bounces", &m_Renderer.GetSettings().Bounces);
 		ImGui::Checkbox("Accumulate", &m_Renderer.GetSettings().Accumulate);
+		UIEdited |= ImGui::DragFloat("Clip Distance", &m_Renderer.GetSettings().FarDistance, 0.01f, 0.0f, 10000000000000.0f);
 		if (ImGui::Button("Reset"))
 		{
 			m_Renderer.ResetFrameIndex();
@@ -95,6 +103,7 @@ public:
 				{
 					m_Scene.addSphere();
 					selectedObjectIndex = m_Scene.ProcObjects.Objects.size() - 1;
+					UIEdited = true;
 				}
 				ImGui::EndMenu();
 			}
@@ -131,13 +140,16 @@ public:
 					UIEdited = true;
 				}
 				ImGui::Separator();
-				auto& mat = m_Scene.Materials[object->getMaterialIndex()];
-				UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
-				UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
-				UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
-				UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
-				UIEdited |= ImGui::DragFloat("Emission Strength", &mat.EmissionStrength, 0.1f, 0.0f, 5000.0f);
-				ImGui::Separator();
+				if (selectedObjectIndex != -1 ) 
+				{
+					auto& mat = m_Scene.Materials[object->getMaterialIndex()];
+					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
+					UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
+					UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
+					UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
+					UIEdited |= ImGui::DragFloat("Emission Strength", &mat.EmissionStrength, 0.1f, 0.0f, 5000.0f);
+					ImGui::Separator();
+				}
             }
             ImGui::TreePop();
             }

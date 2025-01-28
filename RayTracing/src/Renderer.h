@@ -50,6 +50,7 @@ public:
 
 private:
 	glm::vec4 PerPixel(uint32_t x, uint32_t y);
+	glm::vec4 PerPixel2(uint32_t x, uint32_t y);
 
 	HitPayload TraceRay(const Ray& ray, Interval ray_interval);
 	HitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);

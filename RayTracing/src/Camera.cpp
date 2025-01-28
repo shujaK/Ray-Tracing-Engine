@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "Utils.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -104,6 +105,18 @@ void Camera::OnResize(uint32_t width, uint32_t height)
 
 	RecalculateProjection();
 	RecalculateRayDirections();
+}
+
+glm::vec3 Camera::GetRandomAARay(int x, int y, uint32_t &seed) const
+{
+	if (x < m_ViewportWidth && y < m_ViewportHeight)
+	{
+		auto ray = m_RayDirections[x + y * m_ViewportWidth];
+		auto pixelSize = 2.0f / glm::vec2(m_ViewportWidth, m_ViewportHeight);
+		ray += glm::vec3((Utils::RandomFloat(seed) - 0.5f) * pixelSize.x, (Utils::RandomFloat(seed) - 0.5f) * pixelSize.y, 0.0f);
+
+		return ray;
+	}
 }
 
 float Camera::GetRotationSpeed()

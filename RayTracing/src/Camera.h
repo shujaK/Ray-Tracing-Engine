@@ -20,6 +20,7 @@ public:
 	const glm::vec3& GetDirection() const { return m_ForwardDirection; }
 
 	const std::vector<glm::vec3>& GetRayDirections() const { return m_RayDirections; }
+	glm::vec3 GetRandomAARay(int x, int y, uint32_t& seed) const;
 
 	float GetRotationSpeed();
 private:

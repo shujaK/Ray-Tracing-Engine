@@ -1,42 +1,7 @@
 #include "Renderer.h"
 #include "Interval.h"
 #include <execution>
-
-namespace Utils {
-	static uint32_t ConvertToRGBA(const glm::vec4& color)
-	{
-		Interval val_interval(0.0f, 0.999f);
-
-		uint8_t r = (uint8_t) (val_interval.clamp(color.r) * 255.0f);
-		uint8_t g = (uint8_t) (val_interval.clamp(color.g) * 255.0f);
-		uint8_t b = (uint8_t) (val_interval.clamp(color.b) * 255.0f);
-		uint8_t a = (uint8_t) (val_interval.clamp(color.a) * 255.0f);
-
-		uint32_t res = (a << 24) | (b << 16) | (g << 8) | r;
-		return res;
-	}
-
-	static uint32_t pcg_hash(uint32_t input)
-	{
-		uint32_t state = input * 747796405u + 2891336453u;
-		uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-		return (word >> 22u) ^ word;
-	}
-
-	static float RandomFloat(uint32_t& seed)
-	{
-		seed = pcg_hash(seed);
-		return (float) seed / (float) std::numeric_limits<uint32_t>::max();
-	}
-
-	static glm::vec3 RandomInUnitSphere(uint32_t& seed)
-	{
-		return glm::normalize(glm::vec3(
-			RandomFloat(seed) * 2.0f - 1.0f,
-			RandomFloat(seed) * 2.0f - 1.0f,
-			RandomFloat(seed) * 2.0f - 1.0f));
-	}
-}
+#include "Utils.h"
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
 {
@@ -97,7 +62,7 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 			std::for_each(std::execution::par, m_ImageHorizontalIter.begin(), m_ImageHorizontalIter.end(),
 				[this, y](uint32_t& x)
 				{
-					auto color = PerPixel(x, y);
+					auto color = PerPixel2(x, y);
 					m_AccumulationData[y * m_FinalImage->GetWidth() + x] += color;
 
 					glm::vec4 accumulatedColor = m_AccumulationData[y * m_FinalImage->GetWidth() + x] / (float) m_FrameIndex;
@@ -114,7 +79,7 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 		{
 			auto color = PerPixel(x, y);
 			m_AccumulationData[y * width + x] += color;
-
+			
 			glm::vec4 accumulatedColor = m_AccumulationData[y * width + x] / (float) m_FrameIndex;
 
 			accumulatedColor = glm::clamp(accumulatedColor, 0.0f, 1.0f);
@@ -195,6 +160,54 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
 	return glm::vec4(light, 1.0f);
 }
+
+glm::vec4 Renderer::PerPixel2(uint32_t x, uint32_t y)
+{
+	Ray ray;
+	ray.origin = m_ActiveCamera->GetPosition();
+	glm::vec3 color(0.0f);
+
+	if (!m_Settings.Antialiasing || m_Settings.AntialiasingSamples == 1)
+	{
+		ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
+		HitPayload payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
+		if (payload.HitDistance < 0.0f)
+		{
+			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+			color = skyCol;
+		}
+		else
+		{
+			color = payload.WorldNormal * 0.5f + 0.5f;
+		}
+	}
+	else
+	{
+		uint32_t seed = y * m_FinalImage->GetWidth() + x;
+		seed *= m_FrameIndex;
+
+		for (int i = 0; i < m_Settings.AntialiasingSamples; i++)
+		{
+			ray.direction = m_ActiveCamera->GetRandomAARay(x, y, seed);
+			HitPayload payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
+			if (payload.HitDistance < 0.0f)
+			{
+				glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+				color += skyCol;
+			}
+			else
+			{
+				color += payload.WorldNormal * 0.5f + 0.5f;
+			}
+		}
+
+		color /= (float) m_Settings.AntialiasingSamples;
+	}
+
+	
+	return glm::vec4(color, 1.0f);
+}
+
 
 HitPayload Renderer::TraceRay(const Ray& ray, Interval ray_interval)
 {

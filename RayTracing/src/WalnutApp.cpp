@@ -66,8 +66,54 @@ public:
     {
 		bool UIEdited = false;
 
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+		ImGui::Begin("Viewport");
+
+		m_ViewportWidth = ImGui::GetContentRegionAvail().x;
+		m_ViewportHeight = ImGui::GetContentRegionAvail().y;
+
+
+		if (imageMousePos.x > -1 && ImGui::IsMouseDown(0))
+		{
+			auto p = m_Renderer.ClickQueryObject(imageMousePos.x, m_ViewportHeight - imageMousePos.y);
+			selectedObjectIndex = p.ObjectIndex;
+		}
+
+		auto finalImage = m_Renderer.GetFinalImage();
+		if (finalImage)
+		{
+			ImVec2 imageSize = { (float) finalImage->GetWidth(), (float) finalImage->GetHeight() };
+			ImGui::Image(finalImage->GetDescriptorSet(), imageSize, ImVec2(0, 1), ImVec2(1, 0));
+
+			// Get the mouse position relative to the image
+			ImVec2 mousePos = ImGui::GetMousePos();
+			ImVec2 windowPos = ImGui::GetWindowPos();
+			ImVec2 relativeMousePos = { mousePos.x - windowPos.x, mousePos.y - windowPos.y };
+
+			// Check if the mouse is outside the bounds of the image
+			if (relativeMousePos.x < 0 || relativeMousePos.x > imageSize.x || relativeMousePos.y < 0 || relativeMousePos.y > imageSize.y)
+			{
+				relativeMousePos.x = -1;
+				relativeMousePos.y = -1;
+			}
+
+			imageMousePos.x = relativeMousePos.x;
+			imageMousePos.y = relativeMousePos.y;
+		}
+
+		ImGui::End();
+		ImGui::PopStyleVar();
+
         ImGui::Begin("Settings");
         ImGui::Text("Last render: %.3fms (%.2f FPS)", m_LastRenderTime, 1000.0f/ m_LastRenderTime);
+
+		//plot fps in an ImGui::PlotLines
+		static float values[90] = { 0 };
+		static int values_offset = 0;
+		values[values_offset] = 1000.0f / m_LastRenderTime;
+		values_offset = (values_offset + 1) % IM_ARRAYSIZE(values);
+		ImGui::PlotLines("FPS", values, IM_ARRAYSIZE(values), values_offset, nullptr, 0.0f, 200.0f, ImVec2(0, 80.0f));
+
 		if (!realtime)
 		{
 			if (ImGui::Button("Render"))
@@ -176,46 +222,7 @@ public:
 
 		ImGui::End();
 
-
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-		ImGui::Begin("Viewport");
-
-        m_ViewportWidth = ImGui::GetContentRegionAvail().x;
-        m_ViewportHeight = ImGui::GetContentRegionAvail().y;
-
-        auto finalImage = m_Renderer.GetFinalImage();
-        if (finalImage)
-		{
-            ImVec2 imageSize = { (float) finalImage->GetWidth(), (float) finalImage->GetHeight() };
-            ImGui::Image(finalImage->GetDescriptorSet(), imageSize, ImVec2(0, 1), ImVec2(1, 0));
-
-            // Get the mouse position relative to the image
-            ImVec2 mousePos = ImGui::GetMousePos();
-            ImVec2 windowPos = ImGui::GetWindowPos();
-            ImVec2 relativeMousePos = { mousePos.x - windowPos.x, mousePos.y - windowPos.y };
-
-            // Check if the mouse is outside the bounds of the image
-            if (relativeMousePos.x < 0 || relativeMousePos.x > imageSize.x || relativeMousePos.y < 0 || relativeMousePos.y > imageSize.y)
-            {
-                relativeMousePos.x = -1;
-                relativeMousePos.y = -1;
-            }
-
-			imageMousePos.x = relativeMousePos.x;
-			imageMousePos.y = relativeMousePos.y;
-		}
-
-        ImGui::End();
-        ImGui::PopStyleVar();
-
 		if (UIEdited) m_Renderer.ResetFrameIndex();
-
-		if (imageMousePos.x > -1 && ImGui::IsMouseDown(0))
-		{
-			auto p = m_Renderer.ClickQueryObject(imageMousePos.x, finalImage->GetHeight() - imageMousePos.y);
-			selectedObjectIndex = p.ObjectIndex;
-		}
-
 		if (realtime) Render();
     }
 

@@ -17,7 +17,8 @@ struct HitPayload {
 enum materialType {
 	Diffuse = 1,
 	Metal = 2,
-	Dielectric = 3
+	Dielectric = 3,
+	Emissive = 4,
 };
 
 struct Material

@@ -61,6 +61,33 @@ public:
 		}
 	}
 
+    void MatUI(bool& UIEdited, Material& mat)
+    {
+		// Material Type Combo Box
+		const char* materialTypes[] = { "Diffuse", "Metal", "Dielectric" };
+		int currentTypeIndex = mat.type - 1; // Adjust for 0-based indexing
+		if (ImGui::Combo("Material Type", &currentTypeIndex, materialTypes, IM_ARRAYSIZE(materialTypes)))
+		{
+			mat.type = currentTypeIndex + 1; // Adjust back to 1-based indexing
+			UIEdited = true;
+		}
+
+		// Albedo is always shown
+		UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
+
+		// Roughness is only shown if the material type is Metal
+		if (mat.type == Metal)
+		{
+			UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
+		}
+
+		// Emission is only shown if the material has emission strength
+		if (mat.type == Emissive)
+		{
+			UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
+			UIEdited |= ImGui::DragFloat("Emission Strength", &mat.EmissionStrength, 0.1f, 0.0f, 5000.0f);
+		}
+    }
 
     virtual void OnUIRender() override
     {
@@ -191,12 +218,7 @@ public:
 				if (selectedObjectIndex != -1 ) 
 				{
 					auto& mat = m_Scene.Materials[object->getMaterialIndex()];
-					UIEdited |= ImGui::InputInt("Material Type", &mat.type);
-					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
-					UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
-					UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
-					UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(mat.EmissionColor), 0.01f);
-					UIEdited |= ImGui::DragFloat("Emission Strength", &mat.EmissionStrength, 0.1f, 0.0f, 5000.0f);
+					MatUI(UIEdited, mat);
 					ImGui::Separator();
 				}
             }
@@ -210,12 +232,8 @@ public:
 				if (ImGui::TreeNode(("Material " + std::to_string(i)).c_str()))
 				{
 					ImGui::PushID(i);
-					UIEdited |= ImGui::InputInt("Material Type", &m_Scene.Materials[i].type);
-					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
-					UIEdited |= ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0.0f, 1.0f);
-					UIEdited |= ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0.0f, 1.0f);
-					UIEdited |= ImGui::ColorEdit3("Emission Color", glm::value_ptr(m_Scene.Materials[i].EmissionColor), 0.01f);
-					UIEdited |= ImGui::DragFloat("Emission Strength", &m_Scene.Materials[i].EmissionStrength, 0.2f, 0.0f, 5000.0f);
+					auto& mat = m_Scene.Materials[i];
+					MatUI(UIEdited, mat);
 					ImGui::Separator();
 					ImGui::PopID();
 					ImGui::TreePop();
@@ -248,33 +266,6 @@ public:
 		m_LastRenderTime = timer.ElapsedMillis();
 	}
 
-	// void SaveScene(std::string filename)
-	// {
-	// 	std::ofstream file(filename + ".json");
-	// 	if (file.is_open())
-	// 	{
-	// 		nlohmann::json j;
-	// 		j["Spheres"] = m_Scene.Spheres;
-	// 		j["Materials"] = m_Scene.Materials;
-	// 		file << j.dump(4);
-	// 		file.close();
-	// 	}
-	// }
-	// 
-	// void LoadScene()
-	// {
-	// 	std::ifstream file("scene.json");
-	// 	if (file.is_open())
-	// 	{
-	// 		nlohmann::json j;
-	// 		file >> j;
-	// 		m_Scene.Spheres = j["Spheres"].get<std::vector<Sphere>>();
-	// 		m_Scene.Materials = j["Materials"].get<std::vector<Material>>();
-	// 		file.close();
-	// 	}
-	// 
-	// 	m_Renderer.ResetFrameIndex();
-	// }
 private:
 	bool realtime = true;
 	Renderer m_Renderer;

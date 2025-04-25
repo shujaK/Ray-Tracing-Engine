@@ -14,10 +14,17 @@ struct HitPayload {
 	int ObjectIndex;
 };
 
+enum materialType {
+	Diffuse = 1,
+	Metal = 2,
+	Dielectric = 3
+};
+
 struct Material
 {
+	int type = 1;
 	glm::vec3 Albedo{ 1.0f };
-	float Roughness = 1.0f;
+	float Roughness = 0.5f;
 	float Metallic = 0.0f;
 	glm::vec3 EmissionColor{ 0.0f };
 	float EmissionStrength = 0.0f;
@@ -36,8 +43,10 @@ struct Scene
 {
 	std::vector<Material> Materials;
 	ProcObjectList ProcObjects;
+	glm::vec3 SkyColour{ 0.6f, 0.7f, 0.9f };
 
 	void addSphere();
+	const Material* getMaterialFromObjectIndex(int index) const;
 	
 };
 

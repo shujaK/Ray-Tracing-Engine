@@ -1,6 +1,7 @@
 #include "Renderer.h"
 #include "Interval.h"
 #include <execution>
+#include <random>
 #include "Utils.h"
 
 void Renderer::OnResize(uint32_t width, uint32_t height)
@@ -68,7 +69,7 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 					glm::vec4 accumulatedColor = m_AccumulationData[y * m_FinalImage->GetWidth() + x] / (float) m_FrameIndex;
 
 					accumulatedColor = glm::clamp(accumulatedColor, 0.0f, 1.0f);
-					m_ImageData[y * m_FinalImage->GetWidth() + x] = Utils::ConvertToRGBA(accumulatedColor);
+					m_ImageData[y * m_FinalImage->GetWidth() + x] = Utils::ConvertLinearToGamma(accumulatedColor);
 				});
 		});
 #else
@@ -87,8 +88,9 @@ void Renderer::Render(const Camera& camera, const Scene& scene)
 		}
 	}
 #endif
-	m_FinalImage->SetData(m_ImageData);
 
+	m_FrameIndex2++;
+	m_FinalImage->SetData(m_ImageData);
 	if (m_Settings.Accumulate)
 	{
 		m_FrameIndex++;
@@ -139,7 +141,7 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 
 			if (payload.HitDistance < 0.0f)
 			{
-				glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
+				glm::vec3 skyCol = m_ActiveScene->SkyColour;
 				light += skyCol * contribution;
 				break;
 			}
@@ -161,31 +163,62 @@ glm::vec4 Renderer::PerPixel(uint32_t x, uint32_t y)
 	return glm::vec4(light, 1.0f);
 }
 
+glm::vec3 Renderer::RayColor(Ray& ray)
+{
+	glm::vec3 color(0.0f);
+	HitPayload payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
+	float factor = 1.0f;
+	uint32_t seed = ray.direction.x * 7185318563 * m_FrameIndex2;\
+
+	if (payload.HitDistance < 0)
+	{
+		return m_ActiveScene->SkyColour;
+	}
+
+	glm::vec3 colourContribution(1.0f);
+	while (payload.HitDistance >= 0)
+	{
+		const Material* mat =m_ActiveScene->getMaterialFromObjectIndex(payload.ObjectIndex);
+		ray.origin = payload.WorldPosition + (payload.WorldNormal * 0.000001f);
+
+		switch (mat->type)
+		{
+		case Diffuse:
+			ray.direction = Utils::RandomInUnitHemiSphere(seed, payload.WorldNormal) + payload.WorldNormal;
+			break;
+
+		case Metal:
+			glm::vec3 reflected = glm::reflect(ray.direction, payload.WorldNormal);
+			ray.direction = glm::normalize(reflected) + (mat->Roughness * Utils::RandomInUnitHemiSphere(seed, payload.WorldNormal));
+
+			break;
+		}
+
+		colourContribution *= mat->Albedo;
+		payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
+		factor *= 0.5f;
+	}
+
+	return factor * colourContribution;
+}
+
+
 glm::vec4 Renderer::PerPixel2(uint32_t x, uint32_t y)
 {
 	Ray ray;
 	ray.origin = m_ActiveCamera->GetPosition();
 	glm::vec3 color(0.0f);
 
+	uint32_t seed = y * m_FinalImage->GetWidth() + x * m_FrameIndex2;
+	seed *= m_FrameIndex2;
+
 	if (!m_Settings.Antialiasing || m_Settings.AntialiasingSamples == 1)
 	{
 		ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
-		HitPayload payload = TraceRay(ray, Interval(0, m_Settings.FarDistance));
-		if (payload.HitDistance < 0.0f)
-		{
-			glm::vec3 skyCol = glm::vec3(0.6f, 0.7f, 0.9f);
-			color = skyCol;
-		}
-		else
-		{
-			color = payload.WorldNormal * 0.5f + 0.5f;
-		}
+		color = RayColor(ray);
 	}
 	else
 	{
-		uint32_t seed = y * m_FinalImage->GetWidth() + x;
-		seed *= m_FrameIndex;
-
 		for (int i = 0; i < m_Settings.AntialiasingSamples; i++)
 		{
 			ray.direction = m_ActiveCamera->GetRandomAARay(x, y, seed);
@@ -197,7 +230,9 @@ glm::vec4 Renderer::PerPixel2(uint32_t x, uint32_t y)
 			}
 			else
 			{
-				color += payload.WorldNormal * 0.5f + 0.5f;
+				ray.direction = m_ActiveCamera->GetRayDirections()[y * m_FinalImage->GetWidth() + x];
+				color += RayColor(ray);
+
 			}
 		}
 
@@ -221,7 +256,7 @@ HitPayload Renderer::TraceRay(const Ray& ray, Interval ray_interval)
 	for (uint32_t i = 0; i < m_ActiveScene->ProcObjects.Objects.size(); i++)
 	{
 		auto payload = m_ActiveScene->ProcObjects.Objects[i]->TraceRay(ray, Interval(ray_interval.min, hitDistance));
-		if (payload.HitDistance > 0.0f && payload.HitDistance < hitDistance)
+		if (payload.HitDistance > 0 && payload.HitDistance < hitDistance)
 		{
 			finalPayload = payload;
 			hitAny = true;
@@ -235,24 +270,6 @@ HitPayload Renderer::TraceRay(const Ray& ray, Interval ray_interval)
 	return finalPayload;
 
 }
-
-
-// HitPayload Renderer::ClosestHit(const Ray& ray, float hitDistance, int objectIndex)
-// {
-// 	HitPayload payload;
-// 	payload.HitDistance = hitDistance;
-// 	payload.ObjectIndex = objectIndex;
-// 
-// 	pSphere* closestSphere = (pSphere *) m_ActiveScene->ProcObjects.Objects[objectIndex].get();
-// 
-// 	glm::vec3 origin = ray.origin - closestSphere->Position;
-// 	payload.WorldPosition = origin + ray.direction * hitDistance;
-// 	payload.WorldNormal = glm::normalize(payload.WorldPosition);
-// 
-// 	payload.WorldPosition += closestSphere.Position;
-// 
-// 	return payload;
-// }
 
 HitPayload Renderer::Miss(const Ray& ray)
 {

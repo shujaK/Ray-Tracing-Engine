@@ -44,3 +44,8 @@ void Scene::addSphere()
 	sphere.MaterialIndex = 0;
 	ProcObjects.add(std::make_shared<pSphere>(sphere));
 }
+
+const Material* Scene::getMaterialFromObjectIndex(int index) const
+{
+	return &Materials[ProcObjects.Objects[index]->getMaterialIndex()];
+}

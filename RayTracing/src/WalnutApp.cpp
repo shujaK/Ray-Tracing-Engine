@@ -106,6 +106,8 @@ public:
 
         ImGui::Begin("Settings");
         ImGui::Text("Last render: %.3fms (%.2f FPS)", m_LastRenderTime, 1000.0f/ m_LastRenderTime);
+		UIEdited |= ImGui::Checkbox("dbgToggle", &m_Renderer.GetSettings().debugToggle);
+		// ImGui::Text("Frame #: %d", m_Renderer.GetFrameIndex());
 
 		//plot fps in an ImGui::PlotLines
 		static float values[90] = { 0 };
@@ -189,6 +191,7 @@ public:
 				if (selectedObjectIndex != -1 ) 
 				{
 					auto& mat = m_Scene.Materials[object->getMaterialIndex()];
+					UIEdited |= ImGui::InputInt("Material Type", &mat.type);
 					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(mat.Albedo), 0.01f);
 					UIEdited |= ImGui::DragFloat("Roughness", &mat.Roughness, 0.01f, 0.0f, 1.0f);
 					UIEdited |= ImGui::DragFloat("Metallic", &mat.Metallic, 0.01f, 0.0f, 1.0f);
@@ -207,6 +210,7 @@ public:
 				if (ImGui::TreeNode(("Material " + std::to_string(i)).c_str()))
 				{
 					ImGui::PushID(i);
+					UIEdited |= ImGui::InputInt("Material Type", &m_Scene.Materials[i].type);
 					UIEdited |= ImGui::ColorEdit3("Albedo", glm::value_ptr(m_Scene.Materials[i].Albedo), 0.01f);
 					UIEdited |= ImGui::DragFloat("Roughness", &m_Scene.Materials[i].Roughness, 0.01f, 0.0f, 1.0f);
 					UIEdited |= ImGui::DragFloat("Metallic", &m_Scene.Materials[i].Metallic, 0.01f, 0.0f, 1.0f);
@@ -219,6 +223,12 @@ public:
 			}
 			ImGui::TreePop();
         }
+
+		if (ImGui::TreeNode("World"))
+		{
+			UIEdited |= ImGui::ColorEdit3("Sky Colour", glm::value_ptr(m_Scene.SkyColour), 0.01f);
+			ImGui::TreePop();
+		}
 
 		ImGui::End();
 

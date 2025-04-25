@@ -13,12 +13,13 @@ class Renderer {
 public:
 	struct Settings
 	{
-		bool Accumulate = true;
+		bool Accumulate = false;
 		int Bounces = 5;
 		float FarDistance = infinity;
 		bool Antialiasing = false;
 		int AntialiasingSamples = 3;
 		int AntialiasingFactor = 1000;
+		bool debugToggle = false;
 	};
 
 private:
@@ -27,6 +28,7 @@ private:
 	uint32_t* m_ImageData = nullptr;
 	glm::vec4* m_AccumulationData = nullptr;
 	uint32_t m_FrameIndex = 1;
+	uint32_t m_FrameIndex2 = 1;
 	Settings m_Settings;
 
 	const Scene* m_ActiveScene = nullptr;
@@ -48,11 +50,14 @@ public:
 
 	Settings& GetSettings() { return m_Settings; }
 
+	uint32_t GetFrameIndex() { return m_FrameIndex; }
+
 private:
 	glm::vec4 PerPixel(uint32_t x, uint32_t y);
 	glm::vec4 PerPixel2(uint32_t x, uint32_t y);
 
 	HitPayload TraceRay(const Ray& ray, Interval ray_interval);
+	glm::vec3 RayColor(Ray& ray);
 	HitPayload ClosestHit(const Ray& ray, float hitDistance, int objectIndex);
 	HitPayload Miss(const Ray& ray);
 };
